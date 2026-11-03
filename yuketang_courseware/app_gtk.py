@@ -581,6 +581,8 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
         def finish() -> None:
             self._all_courses = courses
             self._install_terms(terms, selected)
+            # 登录线程里已经 busy=True；_reload 会因此直接 return，讲次永远不整理。
+            self._set_busy(False)
             self._reload(term=selected, every=self.all_terms.get_active())
 
         self.ui(finish)
