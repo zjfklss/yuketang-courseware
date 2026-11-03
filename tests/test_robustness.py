@@ -555,7 +555,16 @@ class LibraryRobustnessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._pdf(root / "a.pdf")
-            with mock.patch.object(Path, "stat", side_effect=OSError("没了")):
+            real_stat = Path.stat
+
+            def vanishing(self, *args, **kwargs):
+                # 只让这个临时目录里的 stat 失败。全局替换会把 tempfile 清理、
+                # 测试框架自己的操作也一起弄崩（3.10 / 3.12 上就会，3.14 上恰好没事）。
+                if str(self).startswith(str(root)):
+                    raise OSError("没了")
+                return real_stat(self, *args, **kwargs)
+
+            with mock.patch.object(Path, "stat", vanishing):
                 self.assertEqual(library.scan(root), [])
 
     def test_zero_byte_and_tiny_pdfs_ignored(self):
