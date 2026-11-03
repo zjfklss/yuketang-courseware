@@ -20,13 +20,14 @@ def main() -> int:
     source = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "docs" / "icon-128.png"
     target = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).parent / "app.ico"
     if not source.exists():
-        sys.stderr.write(f"找不到图标源文件：{source}\n")
+        sys.stderr.write(f"icon source not found: {source}\n")
         return 1
     image = Image.open(source).convert("RGBA")
     target.parent.mkdir(parents=True, exist_ok=True)
     # Pillow 会按 sizes 生成多分辨率 ico；没有 256 的源图就放大，边缘略软但够用
     image.save(target, format="ICO", sizes=SIZES)
-    print(f"已生成 {target}（{', '.join(f'{w}x{h}' for w, h in SIZES)}）")
+    # CI Windows 默认控制台是 cp1252，中文 print 会直接炸，尽管 ico 已写完
+    print(f"wrote {target} ({', '.join(f'{w}x{h}' for w, h in SIZES)})")
     return 0
 
 
