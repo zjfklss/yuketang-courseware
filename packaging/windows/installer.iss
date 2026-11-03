@@ -1,10 +1,10 @@
 ; Inno Setup 安装包脚本（可选）。
-; 用法：先用 build-windows.ps1 打出 dist\yuketang-courseware\，再：
+; 用法：先用 build-windows.ps1 打出单文件 exe，再：
 ;   iscc packaging\windows\installer.iss
 ; 产物在 dist\yuketang-courseware-<版本>-setup.exe。
 
 #define MyAppName "雨课堂课件"
-#define MyAppVersion "0.5.6"
+#define MyAppVersion "0.5.7"
 #define MyAppPublisher "本地工具"
 #define MyAppExeName "yuketang-courseware.exe"
 
@@ -33,7 +33,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务："; Flags: unchecked
 
 [Files]
-Source: "..\..\dist\yuketang-courseware\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\yuketang-courseware.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\yuketang-courseware-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

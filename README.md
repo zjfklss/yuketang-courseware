@@ -4,7 +4,7 @@
 > Linux 是 GTK4 原生界面，Windows 是 Qt 界面，都带命令行；Linux 可双击 `.deb` 安装。
 
 **直接下载安装包**：[Releases 里的 `.deb`](https://github.com/zjfklss/yuketang-courseware/releases/latest) —— 不用自己构建。
-Windows 用 Releases 里的 `yuketang-courseware-windows.zip`，解压后双击 `yuketang-courseware.exe`。
+Windows 直接下 Releases 里的 `yuketang-courseware.exe` 双击即可（也有 zip / cli）。
 
 ![python](https://img.shields.io/badge/python-3.8%2B-3776ab?logo=python&logoColor=white)
 ![GTK4](https://img.shields.io/badge/GTK-4.6%2B-4a90d9)
@@ -12,7 +12,7 @@ Windows 用 Releases 里的 `yuketang-courseware-windows.zip`，解压后双击 
 ![platform](https://img.shields.io/badge/Debian%20%2F%20Ubuntu-deb-a80030)
 ![tests](https://github.com/zjfklss/yuketang-courseware/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/version-0.5.6-success)
+![status](https://img.shields.io/badge/version-0.5.7-success)
 
 ---
 
@@ -94,9 +94,9 @@ sudo apt install ./dist/yuketang-courseware_*_all.deb
 
 ### 方式三：Windows
 
-去 [Releases](https://github.com/zjfklss/yuketang-courseware/releases/latest) 下载 `yuketang-courseware-windows.zip`，解压到任意目录，双击 `yuketang-courseware.exe`。不需要装 Python。
+去 [Releases](https://github.com/zjfklss/yuketang-courseware/releases/latest) 下载 `yuketang-courseware.exe`，双击即可。不需要装 Python，也不用解压。
 
-命令行用同目录的 `yuketang-courseware-cli.exe`：
+命令行下同页的 `yuketang-courseware-cli.exe`：
 
 ```powershell
 .\yuketang-courseware-cli.exe --url '<粘贴的网址>' --list
@@ -109,7 +109,7 @@ sudo apt install ./dist/yuketang-courseware_*_all.deb
 git clone https://github.com/zjfklss/yuketang-courseware.git
 cd yuketang-courseware
 powershell -ExecutionPolicy Bypass -File packaging\windows\build-windows.ps1
-# 产物：dist\yuketang-courseware\yuketang-courseware.exe
+# 产物：dist\yuketang-courseware.exe
 ```
 
 脚本会建 `.venv`、装 `requirements-windows.txt`、跑测试，再用 PyInstaller 打包。
@@ -135,7 +135,7 @@ yuketang-courseware --doctor
 ```
 
 ```text
-雨课堂课件 0.5.6 环境自检（Linux）
+雨课堂课件 0.5.7 环境自检（Linux）
 
   ✓ Python       3.10.12（/usr/bin/python3）
   ✓ PyGObject    3.42.2
@@ -295,7 +295,7 @@ $env:YUKETANG_BROWSER_FLAGS = "--no-sandbox"
 不会。JPEG 原字节直接嵌进 PDF，没有解码再编码的过程，体积和画质都等于平台原图。
 
 **支持 Windows / macOS 吗？**
-Windows 支持：Releases 里有打包好的 zip，解压双击就能用，登录、选课、下载、整理都在。
+Windows 支持：Releases 里有打包好的 `yuketang-courseware.exe`，双击就能用，登录、选课、下载、整理都在。
 macOS 没做——没机器测，不想发一个“应该能跑”的包。
 
 **Windows 上要装 Python 吗？**

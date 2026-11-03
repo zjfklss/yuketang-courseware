@@ -9,8 +9,8 @@
 #   -SkipDeps        跳过 pip 安装（依赖已经装好时）
 #
 # 产物：
-#   dist\yuketang-courseware\yuketang-courseware.exe      图形界面（双击）
-#   dist\yuketang-courseware\yuketang-courseware-cli.exe  命令行（带控制台）
+#   dist\yuketang-courseware.exe      图形界面（双击）
+#   dist\yuketang-courseware-cli.exe  命令行（带控制台）
 
 param(
     [string]$Python = "",
@@ -60,10 +60,10 @@ try {
     & $Python -m PyInstaller --noconfirm --clean (Join-Path $root "packaging\windows\yuketang-courseware.spec")
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller 失败" }
 
-    $exe = Join-Path $root "dist\yuketang-courseware\yuketang-courseware.exe"
+    $exe = Join-Path $root "dist\yuketang-courseware.exe"
     Write-Host ""
     Write-Host "完成：$exe"
-    Write-Host "命令行：dist\yuketang-courseware\yuketang-courseware-cli.exe --help"
+    Write-Host "命令行：dist\yuketang-courseware-cli.exe --help"
 } finally {
     Pop-Location
 }

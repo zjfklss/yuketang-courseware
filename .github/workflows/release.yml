@@ -28,6 +28,6 @@ jobs:
           name: ${{ github.ref_name }}
           body: |
             **Ubuntu / Debian**：下载 `.deb` 后执行 `sudo apt install ./yuketang-courseware_*.deb`（依赖由 apt 一并装好）。
-            **Windows**：同 Release 里的 `yuketang-courseware-windows.zip`，解压后双击 `yuketang-courseware.exe`。
+            **Windows**：同 Release 里的 `yuketang-courseware.exe`，双击即可；也有 cli 与 zip。
             详见 [README](../blob/main/README.md)。
           fail_on_unmatched_files: true
