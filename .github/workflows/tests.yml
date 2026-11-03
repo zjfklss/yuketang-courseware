@@ -4,6 +4,8 @@ name: tests
 # 而这里的失败原因（镜像环境）跟代码质量无关。
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
 
 jobs:
@@ -22,7 +24,21 @@ jobs:
         run: python -m pip install --quiet --upgrade pip pillow
 
       - name: 跑单测（不联网、不起浏览器）
-        run: python -m unittest discover -s tests -v
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > /tmp/test.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### 单测失败（exit $status）"
+              echo '```'
+              tail -80 /tmp/test.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            tail -80 /tmp/test.log
+            exit "$status"
+          fi
+          tail -3 /tmp/test.log
 
       - name: 能打出 deb
         run: |
@@ -46,7 +62,21 @@ jobs:
             python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-pil
 
       - name: 跑全部单测（含界面兜底检查）
-        run: /usr/bin/python3 -m unittest discover -s tests -v
+        run: |
+          set +e
+          /usr/bin/python3 -m unittest discover -s tests -v > /tmp/test.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### GTK 环境单测失败（exit $status）"
+              echo '```'
+              tail -80 /tmp/test.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            tail -80 /tmp/test.log
+            exit "$status"
+          fi
+          tail -3 /tmp/test.log
 
       - name: 环境自检
         run: |
