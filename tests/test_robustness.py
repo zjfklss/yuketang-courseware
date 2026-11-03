@@ -550,6 +550,7 @@ class LibraryRobustnessTest(unittest.TestCase):
 
     def test_file_that_vanishes_mid_scan_is_skipped(self):
         """扫到一半文件被删掉 / 坏掉的符号链接：跳过，不崩。"""
+        import errno
         from unittest import mock
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -559,13 +560,26 @@ class LibraryRobustnessTest(unittest.TestCase):
 
             def vanishing(self, *args, **kwargs):
                 # 只让这个临时目录里的 stat 失败。全局替换会把 tempfile 清理、
-                # 测试框架自己的操作也一起弄崩（3.10 / 3.12 上就会，3.14 上恰好没事）。
+                # 测试框架自己的操作也一起弄崩。
                 if str(self).startswith(str(root)):
-                    raise OSError("没了")
+                    raise FileNotFoundError(errno.ENOENT, "没了")
                 return real_stat(self, *args, **kwargs)
 
             with mock.patch.object(Path, "stat", vanishing):
                 self.assertEqual(library.scan(root), [])
+
+    def test_scan_survives_odd_oserror_from_stat(self):
+        """stat 抛的不是 ENOENT（挂载点掉线、EIO 之类）时，扫描也不能整个炸掉。
+
+        `Path.is_dir()` 只吞 ENOENT/ENOTDIR 这类 errno，其余会重新抛出；
+        Python 3.13 起才放宽。这个用例盯的就是老解释器上的行为。
+        """
+        import errno
+        from unittest import mock
+
+        boom = OSError(errno.EIO, "I/O error")
+        with mock.patch.object(Path, "stat", side_effect=boom):
+            self.assertEqual(library.scan(Path("/nonexistent-scope")), [])
 
     def test_zero_byte_and_tiny_pdfs_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:

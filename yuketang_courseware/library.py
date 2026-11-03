@@ -145,7 +145,13 @@ def scan(
     if stats is not None:
         stats["scanned"] = 0
         stats["truncated"] = False
-    if not root.is_dir():
+    # Path.is_dir() 只吞掉 ENOENT/ENOTDIR/EACCES 里的一部分 errno，
+    # 其他 OSError（比如挂载点掉线、权限位异常）会直接抛出来。
+    # Python 3.13 起放宽了这个行为，所以这种崩溃在老解释器上才会出现。
+    try:
+        if not root.is_dir():
+            return []
+    except OSError:
         return []
     found: list[FoundFile] = []
     for base, dirs, files in os.walk(root, followlinks=False, onerror=None):
@@ -162,7 +168,12 @@ def scan(
                 stat = path.stat()
             except OSError:      # 权限不足、文件刚被删掉、坏符号链接
                 continue
-            if not path.is_file() or stat.st_size < _MIN_FILE_SIZE:
+            try:
+                if not path.is_file():
+                    continue
+            except OSError:
+                continue
+            if stat.st_size < _MIN_FILE_SIZE:
                 continue
             try:
                 relative = str(path.relative_to(root))
