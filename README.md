@@ -1,6 +1,6 @@
-# 雨课堂课件下载器 · 幻灯片一键导出 PDF（RainClass，Linux / Windows）
+# 雨课堂课件下载器 · 幻灯片一键导出 PDF（RainClassRoom，Linux / Windows）
 
-> 把**本人已加入**的雨课堂（RainClass）课程幻灯片，按课程 / 讲次批量下载并合成 PDF。
+> 把**本人已加入**的雨课堂（RainClassRoom）课程幻灯片收成按讲分好的 PDF。
 > Linux 是 GTK4 原生界面，Windows 是 Qt 界面，都带命令行；Linux 可双击 `.deb` 安装。
 
 **直接下载安装包**：[Releases 里的 `.deb`](https://github.com/zjfklss/yuketang-courseware/releases/latest) —— 不用自己构建。
@@ -18,7 +18,7 @@ Windows 直接下 Releases 里的 `yuketang-courseware.exe` 双击即可（也�
 
 ## 为什么会有这个东西
 
-雨课堂（RainClass）只让你在网页里一页页翻幻灯片，**不提供下载，也不给 pptx**。期末复习时的典型状态是：手机相册里几百张截图，找「第 7 章那张图」找十分钟。
+雨课堂（RainClassRoom）只让你在网页里一页页翻幻灯片，**不提供下载，也不给 pptx**。期末复习时的典型状态是：手机相册里几百张截图，找「第 7 章那张图」找十分钟。
 
 这个工具就是干这一件事的：
 
@@ -266,7 +266,7 @@ Linux 上装 `microsoft-edge` 或 `google-chrome` 之一。
 
 ## 常见问题
 
-**和 RainClass 官方客户端有什么不同？**
+**和 RainClassRoom 官方客户端有什么不同？**
 官方客户端只做上课、答题、看直播，不提供课件打包下载。这个工具补的就是这一步：把已经上过的课的幻灯片收成本地 PDF。
 
 **为什么是 PDF，不是 pptx？**
