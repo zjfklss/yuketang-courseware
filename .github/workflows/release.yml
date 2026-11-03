@@ -1,6 +1,6 @@
 name: release
 
-# 打 tag（v0.5.4 这种）就自动构建 deb 并挂到 Release，不用手动上传。
+# 打 tag（v*）时构建 Ubuntu .deb，与 Windows workflow 一起挂到同一次 Release。
 on:
   push:
     tags:
@@ -22,10 +22,12 @@ jobs:
           ls -l dist/
 
       - name: 挂到 Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" dist/*.deb \
-            --title "${GITHUB_REF_NAME}" \
-            --notes "安装：\`sudo apt install ./yuketang-courseware_${GITHUB_REF_NAME#v}_all.deb\`（依赖由 apt 一并装好）。详见 [README](../blob/main/README.md)。" \
-            --verify-tag
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          name: ${{ github.ref_name }}
+          body: |
+            **Ubuntu / Debian**：下载 `.deb` 后执行 `sudo apt install ./yuketang-courseware_*.deb`（依赖由 apt 一并装好）。
+            **Windows**：同 Release 里的 `yuketang-courseware-windows.zip`，解压后双击 `yuketang-courseware.exe`。
+            详见 [README](../blob/main/README.md)。
+          fail_on_unmatched_files: true

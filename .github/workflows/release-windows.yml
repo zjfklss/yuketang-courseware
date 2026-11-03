@@ -44,3 +44,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: yuketang-courseware-windows.zip
+          name: ${{ github.ref_name }}
+          body: |
+            **Ubuntu / Debian**：同 Release 里的 `.deb`，`sudo apt install ./yuketang-courseware_*.deb`。
+            **Windows**：下载 `yuketang-courseware-windows.zip`，解压后双击 `yuketang-courseware.exe`。
+            详见 [README](../blob/main/README.md)。
+          fail_on_unmatched_files: true
