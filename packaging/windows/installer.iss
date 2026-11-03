@@ -4,7 +4,7 @@
 ; 产物在 dist\yuketang-courseware-<版本>-setup.exe。
 
 #define MyAppName "雨课堂课件"
-#define MyAppVersion "0.5.8"
+#define MyAppVersion "0.5.9"
 #define MyAppPublisher "本地工具"
 #define MyAppExeName "yuketang-courseware.exe"
 

@@ -554,7 +554,8 @@ class MainWindow(QMainWindow):
             self._course_url = course_url
             # 控件只能在 GUI 线程里读，排到主线程去存
             self._ui(self._remember)
-            self._browser.open_url(course_url.url)
+            # 深链（如 student-lesson-report）容易把调试取数堵死；登录和拉课都走首页
+            self._browser.open_url(f"{course_url.origin}/v2/web/index")
             self._status(
                 "浏览器已打开。扫码或用账号登录，登录成功后课程会自动出现。", pulse=True
             )
@@ -724,17 +725,39 @@ class MainWindow(QMainWindow):
             return
         expand = len(courses) <= 3
         began = time.time()
+        self._fetch_timeout = 20.0
+        if self._course_url is not None:
+            try:
+                self._browser.open_url(f"{self._course_url.origin}/v2/web/index")
+            except Exception:
+                pass
 
         def on_done(course: CourseItem, done: int, total: int) -> None:
             count = len([item for item in course.lessons if item.selectable])
             self._status(
                 f"整理讲次 {done}/{total}：{course.course_name}（{count} 讲）", pulse=True
             )
-            self._ui(lambda course=course: self._append_course(course, expand))
+            self._ui(lambda course=course: self._upsert_course(course, expand))
             self._ui(lambda done=done, total=total: self._set_fraction(done, total))
 
-        load_many(self._fetch, pending, workers=2, on_done=on_done, stop=self._stop)
+        # 必须串行：并发 leaf 请求会堵死同一个 Edge 页面
+        load_many(self._fetch, pending, workers=1, on_done=on_done, stop=self._stop)
         self._fill_seconds = time.time() - began
+
+    def _upsert_course(self, course: CourseItem, expand: bool) -> None:
+        """课堂活动先上屏，课件区补完后再替换同一门课，避免重复行。"""
+        if not self._alive:
+            return
+        existing = self._course_items.pop(id(course), None)
+        if existing is not None:
+            for i in range(existing.childCount()):
+                child = existing.child(i)
+                self._lesson_items.pop(id(child), None)
+            index = self.tree.indexOfTopLevelItem(existing)
+            if index >= 0:
+                self.tree.takeTopLevelItem(index)
+            self._checks = [item for item in self._checks if item[0] is not course]
+        self._append_course(course, expand)
 
     def _append_course(self, course: CourseItem, expand: bool) -> None:
         if not self._alive:

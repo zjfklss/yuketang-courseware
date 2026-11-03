@@ -124,7 +124,7 @@ class CoursewareBrowser:
         self._lock = threading.Lock()
         self._recover_lock = threading.Lock()
         # 限制同时塞进同一个 DevTools 连接的 evaluate 数，避免整理讲次时把 Edge 打挂
-        self._eval_slots = threading.Semaphore(4)
+        self._eval_slots = threading.Semaphore(2)
         self._conn: CdpConnection | None = None
         self._conn_id: str | None = None
         # 页面按主机名缓存：一次登录要发几百个请求，每个都去列标签页太贵

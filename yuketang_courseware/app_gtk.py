@@ -105,6 +105,7 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
         self._terms: list[str] = []
         self._checks: list[tuple[CourseItem, LessonItem, Gtk.CheckButton]] = []
         self._course_rows: list[Gtk.Widget] = []
+        self._course_row_by_id: dict[int, Gtk.Widget] = {}
         self._rendering = False
         self._placeholder_shown = False
         self._result_group = None
@@ -488,7 +489,7 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
             course_url = parse_course_url(text)
             self._course_url = course_url
             self._remember()
-            self._browser.open_url(course_url.url)
+            self._browser.open_url(f"{course_url.origin}/v2/web/index")
             self._status("浏览器已打开。扫码或用账号登录，登录成功后课程会自动出现。", pulse=True)
         except Exception as exc:
             self._notify_error(str(exc) or "没能打开浏览器")
@@ -662,6 +663,12 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
             return
         expand = len(courses) <= 3
         began = time.time()
+        self._fetch_timeout = 20.0
+        if self._course_url is not None:
+            try:
+                self._browser.open_url(f"{self._course_url.origin}/v2/web/index")
+            except Exception:
+                pass
 
         def on_done(course: CourseItem, done: int, total: int) -> None:
             self._status(
@@ -669,11 +676,22 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
                 f"（{len([item for item in course.lessons if item.selectable])} 讲）",
                 pulse=True,
             )
-            self.ui(lambda course=course: self._append_course(course, expand))
+            self.ui(lambda course=course: self._upsert_course(course, expand))
             self.ui(lambda done=done, total=total: self.progress.set_fraction(done / max(1, total)))
 
-        load_many(self._fetch, pending, workers=2, on_done=on_done, stop=self._stop)
+        load_many(self._fetch, pending, workers=1, on_done=on_done, stop=self._stop)
         self._fill_seconds = time.time() - began
+
+    def _upsert_course(self, course: CourseItem, expand: bool) -> None:
+        if not self._alive:
+            return
+        row = self._course_row_by_id.pop(id(course), None)
+        if row is not None:
+            self.course_group.remove(row)
+            if row in self._course_rows:
+                self._course_rows.remove(row)
+            self._checks = [item for item in self._checks if item[0] is not course]
+        self._append_course(course, expand)
 
     def _append_course(self, course: CourseItem, expand: bool) -> None:
         if not self._alive:
@@ -737,6 +755,7 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
         for row in self._course_rows:
             self.course_group.remove(row)
         self._course_rows = []
+        self._course_row_by_id = {}
         if self._placeholder_shown:
             self.course_group.remove(self.course_placeholder)
             self._placeholder_shown = False
@@ -796,6 +815,7 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
             expander.add_row(row)
         self.course_group.add(expander)
         self._course_rows.append(expander)
+        self._course_row_by_id[id(course)] = expander
 
     def _toggle_course(self, toggle: Gtk.CheckButton, buttons, guard: dict) -> None:
         if guard.get("on"):

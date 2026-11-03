@@ -12,7 +12,7 @@ Windows 直接下 Releases 里的 `yuketang-courseware.exe` 双击即可（也�
 ![platform](https://img.shields.io/badge/Debian%20%2F%20Ubuntu-deb-a80030)
 ![tests](https://github.com/zjfklss/yuketang-courseware/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/version-0.5.8-success)
+![status](https://img.shields.io/badge/version-0.5.9-success)
 
 ---
 
@@ -135,7 +135,7 @@ yuketang-courseware --doctor
 ```
 
 ```text
-雨课堂课件 0.5.8 环境自检（Linux）
+雨课堂课件 0.5.9 环境自检（Linux）
 
   ✓ Python       3.10.12（/usr/bin/python3）
   ✓ PyGObject    3.42.2
@@ -284,7 +284,7 @@ Windows 是 `%APPDATA%\yuketang-courseware\browser`），跟日常浏览器完�
 重跑一遍即可。已完成的讲次会被认出来跳过，失败的页只补那一页。某一页反复失败时，结果里会写清缺第几页，其余页正常合成。
 
 **第一次启动 / 第一次「整理讲次」为什么特别慢？**
-第一次往往最慢，后面会好很多。独立 Edge 配置目录是空的，首次要起浏览器、完成登录、再按课去拉讲次；课件区每个 leaf 换 `courseware_id` 的结果会缓存在本机，同一门课下次就不用再问一遍。所以多数时候不是卡死——尤其是第一次，等进度里的 `整理讲次 x/y` 走完即可。如果进度长时间完全不动、窗口也没响应，关掉软件重新打开再登录一次即可。
+第一次往往最慢，后面会好很多。独立 Edge 配置目录是空的，首次要起浏览器、完成登录；整理时会先很快列出课堂活动里的讲次，再慢慢补课件区。课件区 leaf 的结果会缓存在本机，同一门课下次更快。进度里出现 `整理讲次 x/y` 且数字在涨，就还在跑。如果进度长时间完全不动、窗口也没响应，关掉软件重新打开再登录一次即可。
 
 **Windows 上点「登录雨课堂」提示「调试端口没有响应」？**
 旧版 Windows 包有个 bug：把系统里所有 Edge 进程都当成自己的登录窗口。现在的版本会自动收掉上次残留的登录窗口再重开；

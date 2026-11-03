@@ -183,7 +183,7 @@ def _run(args) -> int:
 
     browser = CoursewareBrowser()
     if not args.no_open:
-        browser.open_url(course_url.url)
+        browser.open_url(f"{course_url.origin}/v2/web/index")
         print("已打开登录窗口。没登录的话，在这个窗口里扫码或用账号登录。", flush=True)
 
     def fetch(
@@ -219,7 +219,7 @@ def _run(args) -> int:
             print(f"    注意：{course.error}", flush=True)
 
     began = time.time()
-    load_many(fetch, selected, workers=3, on_done=on_loaded)
+    load_many(fetch, selected, workers=1, on_done=on_loaded)
     elapsed = time.time() - began
     note = timing_summary()
     print(f"读讲次用了 {elapsed:.1f} 秒。" + (f" {note}" if note else ""), flush=True)

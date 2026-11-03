@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import quote
 
-from yuketang_courseware.errors import ApiError, LoginRequired
+from yuketang_courseware.errors import ApiError, BrowserError, LoginRequired
 from yuketang_courseware.names import api_path, safe_component
 
 Fetch = Callable[[str, str | None, str | None], dict]
@@ -29,8 +29,8 @@ SOURCE_LEAF = "课件"
 
 # 课件区的 leaf → courseware_id 是固定的，重复跑同一个课没必要每次都问一遍。
 _CACHE_TTL = 7 * 24 * 3600
-# 多门课并发时再叠 leaf 并发，容易把同一个 DevTools 连接打挂；2 够用。
-_LEAF_WORKERS = 2
+# 同一个 Edge 调试口上叠太多 leaf 请求会把页面主线程堵死，看起来像「整理讲次」卡死。
+_LEAF_WORKERS = 1
 _CACHE_LOCK = threading.Lock()
 
 
@@ -280,7 +280,7 @@ def _resolve_leaf(
         )
     except LoginRequired:
         raise
-    except ApiError as exc:
+    except (ApiError, BrowserError) as exc:
         return "", str(exc)
     data = payload.get("data") if isinstance(payload, dict) else None
     source = data if isinstance(data, dict) else payload
@@ -367,13 +367,14 @@ def assign_folders(courses: list[CourseItem]) -> None:
 def load_many(
     fetch: Fetch,
     courses: list[CourseItem],
-    workers: int = 2,
+    workers: int = 1,
     on_done: Callable[[CourseItem, int, int], None] | None = None,
     stop: object | None = None,
+    include_leaves: bool = True,
 ) -> None:
-    """多门课并发读讲次。每读完一门调一次 on_done(课程, 已完成数, 总数)。
+    """按课读讲次。默认串行：同一调试口并发过高时，第一次整理会假死。
 
-    默认 2 路：再高容易和 leaf 请求叠在同一个 Edge 调试口上，第一次整理像卡死。
+    两阶段：先课堂活动（快，立刻 on_done 刷新界面），再补课件区 leaf。
     """
     if not courses:
         return
@@ -384,11 +385,20 @@ def load_many(
     def work(course: CourseItem) -> None:
         if stop is not None and getattr(stop, "is_set", lambda: False)():
             return
-        load_lessons(fetch, course)
+        # 先课堂活动：几秒内就能在界面上看到这门课
+        load_lessons(fetch, course, include_leaves=False)
+        with lock:
+            counter["done"] += 1
+            index = counter["done"]
         if on_done is not None:
-            with lock:
-                counter["done"] += 1
-                index = counter["done"]
+            on_done(course, index, total)
+        if not include_leaves:
+            return
+        if stop is not None and getattr(stop, "is_set", lambda: False)():
+            return
+        # 再补课件区；同一 index 再回调，界面替换为完整讲次
+        enrich_leaf_lessons(fetch, course)
+        if on_done is not None:
             on_done(course, index, total)
 
     workers = max(1, min(workers, total))
@@ -396,7 +406,12 @@ def load_many(
         list(pool.map(work, courses))
 
 
-def load_lessons(fetch: Fetch, course: CourseItem, delay: float = 0.0) -> None:
+def load_lessons(
+    fetch: Fetch,
+    course: CourseItem,
+    delay: float = 0.0,
+    include_leaves: bool = True,
+) -> None:
     """先取课堂活动，再取课件区。两条都失败才记为课程错误。"""
     problems: list[str] = []
     activities: list[LessonItem] = []
@@ -406,22 +421,41 @@ def load_lessons(fetch: Fetch, course: CourseItem, delay: float = 0.0) -> None:
         activities, no_activity = fetch_activity_lessons(fetch, course)
     except LoginRequired:
         raise
-    except ApiError as exc:
+    except (ApiError, BrowserError) as exc:
         problems.append(str(exc))
     if delay:
         _sleep(delay)
-    # 课堂活动里已经有的讲次，不再去课件区换 courseware_id（省一堆往返）
+    if include_leaves:
+        known = {_title_key(item.title) for item in activities}
+        try:
+            leaves = fetch_leaf_lessons(fetch, course, known_titles=known)
+        except LoginRequired:
+            raise
+        except (ApiError, BrowserError) as exc:
+            problems.append(str(exc))
+    course.lessons = merge_lessons(activities, leaves)
+    course.no_activity = no_activity and not leaves
+    course.loaded = True
+    course.error = "" if course.lessons or not problems else "；".join(problems)
+
+
+def enrich_leaf_lessons(fetch: Fetch, course: CourseItem) -> None:
+    """在已有课堂活动讲次基础上补课件区。单叶失败就跳过，不拖死整门课。"""
+    activities = [item for item in course.lessons if item.source == SOURCE_ACTIVITY]
     known = {_title_key(item.title) for item in activities}
     try:
         leaves = fetch_leaf_lessons(fetch, course, known_titles=known)
     except LoginRequired:
         raise
-    except ApiError as exc:
-        problems.append(str(exc))
+    except (ApiError, BrowserError) as exc:
+        if not course.lessons:
+            course.error = str(exc)
+        return
     course.lessons = merge_lessons(activities, leaves)
-    course.no_activity = no_activity and not leaves
-    course.loaded = True
-    course.error = "" if course.lessons or not problems else "；".join(problems)
+    if leaves:
+        course.no_activity = False
+        if course.error and not activities:
+            course.error = ""
 
 
 def _sleep(seconds: float) -> None:
