@@ -1,5 +1,6 @@
 # UTF-8
-# exe 文件的版本信息（右键属�?�?详细信息�?VSVersionInfo(
+# exe 文件的版本信息（右键属性 → 详细信息）
+VSVersionInfo(
   ffi=FixedFileInfo(
     filevers=(0, 5, 6, 0),
     prodvers=(0, 5, 6, 0),
@@ -22,7 +23,7 @@
             StringStruct("InternalName", "yuketang-courseware"),
             StringStruct("LegalCopyright", "MIT License"),
             StringStruct("OriginalFilename", "yuketang-courseware.exe"),
-            StringStruct("ProductName", "雨课堂课�?),
+            StringStruct("ProductName", "雨课堂课件"),
             StringStruct("ProductVersion", "0.5.6")
           ]
         )
