@@ -11,19 +11,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 环境信息
+        run: |
+          /usr/bin/python3 -V
+          . /etc/os-release && echo "$PRETTY_NAME"
+
       # 用系统 python，才能用上 apt 装的 python3-gi；
       # setup-python 装的那份是独立的，拿不到系统的 GI typelib。
-      - name: 装运行依赖（Ubuntu 24.04：GTK 4.14 / libadwaita 1.5）
+      # update 失败不算致命（镜像里常有失效的第三方源），装包才是关键。
+      - name: 装运行依赖
         run: |
-          sudo apt-get update
+          sudo apt-get update || true
           sudo apt-get install -y --no-install-recommends \
             python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-pil
 
       - name: 跑单测（不联网、不起浏览器）
-        run: /usr/bin/python3 -m unittest discover -s tests -v
+        run: |
+          set +e
+          /usr/bin/python3 -m unittest discover -s tests -v 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### 单测失败"
+              echo '```'
+              tail -60 /tmp/test.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
 
       - name: 能打出 deb
         run: |
           chmod +x build-deb.sh packaging/yuketang-courseware
           ./build-deb.sh
-          dpkg-deb -I dist/*.deb | head -12
+          dpkg-deb -I dist/*.deb > /tmp/control.txt
+          cat /tmp/control.txt
