@@ -18,7 +18,7 @@ jobs:
       # 这样 CI 不依赖 apt（镜像里的第三方源经常失效，apt update 会拖垮整条流水线）。
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: 装测试依赖
         run: python -m pip install --quiet --upgrade pip pillow
