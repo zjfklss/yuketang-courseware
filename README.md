@@ -6,6 +6,7 @@
 ![GTK4](https://img.shields.io/badge/GTK-4.6%2B-4a90d9)
 ![libadwaita](https://img.shields.io/badge/libadwaita-1.0%2B-4a90d9)
 ![platform](https://img.shields.io/badge/Debian%20%2F%20Ubuntu-deb-a80030)
+![license](https://img.shields.io/badge/license-MIT-green)
 ![status](https://img.shields.io/badge/version-0.5.4-success)
 
 ---
@@ -232,6 +233,14 @@ yuketang_courseware/
   cdp.py        # 极简 WebSocket / DevTools 客户端
   preflight.py  # --doctor 环境自检
 ```
+
+---
+
+## 许可证
+
+代码以 [MIT](LICENSE) 发布：可以自由使用、修改、再分发，保留版权声明即可。
+
+**课件本身不在许可范围内**——那是授课教师和平台的版权，本仓库只提供工具，不附带任何课程资料。
 
 ---
 
