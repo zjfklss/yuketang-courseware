@@ -9,7 +9,6 @@
 ![GTK4](https://img.shields.io/badge/GTK-4.6%2B-4a90d9)
 ![libadwaita](https://img.shields.io/badge/libadwaita-1.0%2B-4a90d9)
 ![platform](https://img.shields.io/badge/Debian%20%2F%20Ubuntu-deb-a80030)
-![tests](https://github.com/zjfklss/yuketang-courseware/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![status](https://img.shields.io/badge/version-0.5.4-success)
 
