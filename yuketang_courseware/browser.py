@@ -122,6 +122,9 @@ class CoursewareBrowser:
         self.port: int | None = None
         self.proc: subprocess.Popen | None = None
         self._lock = threading.Lock()
+        self._recover_lock = threading.Lock()
+        # 限制同时塞进同一个 DevTools 连接的 evaluate 数，避免整理讲次时把 Edge 打挂
+        self._eval_slots = threading.Semaphore(4)
         self._conn: CdpConnection | None = None
         self._conn_id: str | None = None
         # 页面按主机名缓存：一次登录要发几百个请求，每个都去列标签页太贵
@@ -205,6 +208,7 @@ class CoursewareBrowser:
         except (CdpError, BrowserError) as exc:
             # 浏览器会把后台标签页冻结，或在窗口关掉后让旧连接失效。
             # 唤醒页面、丢掉旧连接，再试一次；还不行就明确报“页面没有响应”。
+            # 多门课并发时只允许一个人 recover，避免互相拆掉对方的连接像卡死。
             if not self._recover(host):
                 raise BrowserError(
                     "浏览器页面没有响应。请点「登录雨课堂」把这个窗口重新打开一次。"
@@ -311,16 +315,21 @@ class CoursewareBrowser:
 
     def _wait_until_up(self) -> None:
         deadline = time.time() + 20
+        saw_exit = False
         while time.time() < deadline:
+            # 配置目录已被占用时，新起的 Edge 会马上退出并把 URL 交给已有进程。
+            # 这时不能立刻报错，要继续找调试端口（可能是上一次留下的窗口）。
             if self.proc and self.proc.poll() is not None:
+                saw_exit = True
                 discovered = self._discover_port()
                 if discovered and self._version_ok(discovered):
                     self.port = discovered
                     return
-                raise BrowserError("浏览器进程已退出，没有打开独立窗口")
-            if self.port and self._version_ok(self.port):
+            elif self.port and self._version_ok(self.port):
                 return
             time.sleep(0.15)
+        if saw_exit:
+            raise BrowserError("浏览器进程已退出，没有打开独立窗口")
         raise BrowserError("浏览器调试端口没有就绪")
 
     def _devtools_alive(self) -> bool:
@@ -512,11 +521,15 @@ class CoursewareBrowser:
 
     def _recover(self, host: str) -> bool:
         """唤醒被冻结的标签页并重建调试连接。返回是否还有可用的调试端口。"""
-        page = self._find_page(host, wait=1)
-        if page is not None:
-            self._wake(page)
-        self._drop_connection()
-        return self._devtools_alive()
+        with self._recover_lock:
+            # 别人刚恢复成功：端口和连接都还在，别再拆一次
+            if self._conn is not None and self._conn.alive and self._devtools_alive():
+                return True
+            page = self._find_page(host, wait=1)
+            if page is not None:
+                self._wake(page)
+            self._drop_connection()
+            return self._devtools_alive()
 
     def _wake(self, page: dict) -> None:
         """尽量把后台标签页叫醒：前置 + 生命周期设为 active。"""
@@ -557,29 +570,35 @@ class CoursewareBrowser:
             self._page_cache.clear()
 
     def _evaluate(self, page: dict, expression: str, await_promise: bool, timeout: float):
-        conn = self._connect(page)  # CdpConnection.call 自身按 id 分发，可并发
+        # 槽位卡住时别无限等：超时后让上层走 recover / 报错，避免「整理讲次」假死
+        if not self._eval_slots.acquire(timeout=max(5.0, timeout)):
+            raise BrowserError("浏览器调试排队超时")
         try:
-            result = conn.call(
-                "Runtime.evaluate",
-                {
-                    "expression": expression,
-                    "awaitPromise": await_promise,
-                    "returnByValue": True,
-                    "timeout": int(timeout * 1000),
-                },
-                timeout=timeout + 5,
-            )
-        except CdpError:
-            raise BrowserError("浏览器调试失败") from None
-        details = result.get("exceptionDetails")
-        if isinstance(details, dict):
-            raise ApiError(_exception_text(details))
-        remote = result.get("result")
-        if not isinstance(remote, dict):
-            raise ApiError("页面脚本失败")
-        if remote.get("subtype") == "error":
-            raise ApiError(redact(str(remote.get("description") or "页面脚本失败"))[:300])
-        return remote.get("value")
+            conn = self._connect(page)  # CdpConnection.call 自身按 id 分发，可并发
+            try:
+                result = conn.call(
+                    "Runtime.evaluate",
+                    {
+                        "expression": expression,
+                        "awaitPromise": await_promise,
+                        "returnByValue": True,
+                        "timeout": int(timeout * 1000),
+                    },
+                    timeout=timeout + 5,
+                )
+            except CdpError:
+                raise BrowserError("浏览器调试失败") from None
+            details = result.get("exceptionDetails")
+            if isinstance(details, dict):
+                raise ApiError(_exception_text(details))
+            remote = result.get("result")
+            if not isinstance(remote, dict):
+                raise ApiError("页面脚本失败")
+            if remote.get("subtype") == "error":
+                raise ApiError(redact(str(remote.get("description") or "页面脚本失败"))[:300])
+            return remote.get("value")
+        finally:
+            self._eval_slots.release()
 
 
 def parse_api_body(status: int, body: str) -> dict:

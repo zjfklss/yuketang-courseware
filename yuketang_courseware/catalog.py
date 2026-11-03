@@ -29,7 +29,9 @@ SOURCE_LEAF = "课件"
 
 # 课件区的 leaf → courseware_id 是固定的，重复跑同一个课没必要每次都问一遍。
 _CACHE_TTL = 7 * 24 * 3600
-_LEAF_WORKERS = 6
+# 多门课并发时再叠 leaf 并发，容易把同一个 DevTools 连接打挂；2 够用。
+_LEAF_WORKERS = 2
+_CACHE_LOCK = threading.Lock()
 
 
 def _cache_path() -> Path:
@@ -200,7 +202,8 @@ def fetch_leaf_lessons(
     if not found:
         return []
 
-    cache = _read_cache()
+    with _CACHE_LOCK:
+        cache = _read_cache()
     resolved: dict[str, tuple[str, str]] = {}
     pending: list[tuple[str, str]] = []
     for leaf_id, _title in found:
@@ -216,12 +219,20 @@ def fetch_leaf_lessons(
             return leaf_id, _resolve_leaf(fetch, course, leaf_id, uv_id)
 
         workers = max(1, min(workers, len(pending)))
+        fresh: dict[str, list] = {}
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for leaf_id, (courseware_id, problem) in pool.map(work, pending):
                 resolved[leaf_id] = (courseware_id, problem)
                 if courseware_id:
-                    cache[f"{course.classroom_id}|{leaf_id}"] = [courseware_id, time.time()]
-        _write_cache(cache)
+                    fresh[f"{course.classroom_id}|{leaf_id}"] = [
+                        courseware_id,
+                        time.time(),
+                    ]
+        if fresh:
+            with _CACHE_LOCK:
+                cache = _read_cache()
+                cache.update(fresh)
+                _write_cache(cache)
 
     lessons: list[LessonItem] = []
     for leaf_id, title in found:
@@ -356,11 +367,14 @@ def assign_folders(courses: list[CourseItem]) -> None:
 def load_many(
     fetch: Fetch,
     courses: list[CourseItem],
-    workers: int = 3,
+    workers: int = 2,
     on_done: Callable[[CourseItem, int, int], None] | None = None,
     stop: object | None = None,
 ) -> None:
-    """多门课并发读讲次。每读完一门调一次 on_done(课程, 已完成数, 总数)。"""
+    """多门课并发读讲次。每读完一门调一次 on_done(课程, 已完成数, 总数)。
+
+    默认 2 路：再高容易和 leaf 请求叠在同一个 Edge 调试口上，第一次整理像卡死。
+    """
     if not courses:
         return
     total = len(courses)

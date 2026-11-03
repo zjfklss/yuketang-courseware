@@ -672,7 +672,7 @@ class MainWindow(Adw.ApplicationWindow if HAVE_ADW else Gtk.ApplicationWindow): 
             self.ui(lambda course=course: self._append_course(course, expand))
             self.ui(lambda done=done, total=total: self.progress.set_fraction(done / max(1, total)))
 
-        load_many(self._fetch, pending, workers=3, on_done=on_done, stop=self._stop)
+        load_many(self._fetch, pending, workers=2, on_done=on_done, stop=self._stop)
         self._fill_seconds = time.time() - began
 
     def _append_course(self, course: CourseItem, expand: bool) -> None:
