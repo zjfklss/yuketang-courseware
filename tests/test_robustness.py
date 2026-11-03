@@ -531,6 +531,8 @@ class LibraryRobustnessTest(unittest.TestCase):
         return path
 
     def test_unreadable_subdirectory_is_skipped(self):
+        if not hasattr(os, "geteuid"):
+            self.skipTest("Windows 没有权限位，chmod 0 拦不住访问")
         if os.geteuid() == 0:
             self.skipTest("root 无视权限位，测不出来")
         with tempfile.TemporaryDirectory() as tmp:
@@ -701,10 +703,13 @@ class CliRobustnessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = os.getcwd()
             os.chdir(tmp)
-            self.addCleanup(os.chdir, cwd)
-            self.assertEqual(names.resolve_directory("课件"), Path(tmp) / "课件")
-            self.assertEqual(names.resolve_directory("."), Path(tmp))
-            self.assertTrue(str(names.resolve_directory("~/课件")).startswith("/"))
+            try:
+                self.assertEqual(names.resolve_directory("课件"), Path(tmp) / "课件")
+                self.assertEqual(names.resolve_directory("."), Path(tmp))
+                self.assertTrue(names.resolve_directory("~/课件").is_absolute())
+            finally:
+                # Windows 不允许删除还被当作当前目录的文件夹
+                os.chdir(cwd)
 
     def test_help_lists_every_flag(self):
         text = cli.build_parser().format_help()
@@ -964,7 +969,7 @@ class SmartTidyTest(unittest.TestCase):
                 self._pdf(root / "自控" / "课件" / f"{name}.pdf")
             course = self._course(["第1讲 绪论", "第2讲 传递函数", "第3讲 频域"])
             plan = library.plan_tidy(root, [course])
-            targets = sorted(str(move.target.relative_to(root)) for move in plan.moves)
+            targets = sorted(move.target.relative_to(root).as_posix() for move in plan.moves)
             self.assertTrue(all(t.startswith("自控/课件/") for t in targets), targets)
             self.assertFalse((root / "自动控制原理").exists())
             self.assertEqual(len(plan.moves), 3)
@@ -978,7 +983,7 @@ class SmartTidyTest(unittest.TestCase):
             course = self._course(["第1讲 绪论", "第2讲 传递函数", "第3讲 频域"])
             self._pdf(root / "散落" / "第3讲 频域.pdf")
             plan = library.plan_tidy(root, [course])
-            got = [str(move.target.relative_to(root)) for move in plan.moves]
+            got = [move.target.relative_to(root).as_posix() for move in plan.moves]
             self.assertEqual(got, ["自控/第3讲 频域.pdf"])
 
     def test_all_presentations_of_one_lesson_are_moved(self):
@@ -989,7 +994,7 @@ class SmartTidyTest(unittest.TestCase):
             self._pdf(root / "散" / "第1讲 绪论-1.pdf", pages=5, pad=9)
             course = self._course(["第1讲 绪论"])
             plan = library.plan_tidy(root, [course])
-            got = sorted(str(move.target.relative_to(root)) for move in plan.moves)
+            got = sorted(move.target.relative_to(root).as_posix() for move in plan.moves)
             self.assertEqual(
                 got,
                 ["自动控制原理/课件/第1讲 绪论-1.pdf", "自动控制原理/课件/第1讲 绪论.pdf"],
@@ -1108,7 +1113,7 @@ class SmartTidyTest(unittest.TestCase):
             second.folder = "自动控制原理"
             second.lessons = [LessonItem(14, "第1讲 甲", "cwB", True)]
             plan = library.plan_tidy(root, [first, second])
-            targets = {str(move.target.relative_to(root)).split("/")[0] for move in plan.moves}
+            targets = {move.target.relative_to(root).as_posix().split("/")[0] for move in plan.moves}
             self.assertEqual(len(targets), len(plan.moves))
 
 
@@ -1196,7 +1201,7 @@ class TidyNoiseTest(unittest.TestCase):
             self._pdf(root / "散" / "第3讲 频域.pdf", pages=5)
             course = self._course(["第1讲 绪论", "第2讲 传递函数", "第3讲 频域"])
             plan = library.plan_tidy(root, [course])
-            targets = [str(move.target.relative_to(root)) for move in plan.moves]
+            targets = [move.target.relative_to(root).as_posix() for move in plan.moves]
             self.assertEqual(targets, ["自控/自动控制课件/第3讲 频域.pdf"])
             self.assertFalse((root / "自控" / "课件").exists())
 

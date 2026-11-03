@@ -33,8 +33,9 @@ _LEAF_WORKERS = 6
 
 
 def _cache_path() -> Path:
-    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(base) / "yuketang-courseware" / "leaf-map.json"
+    from yuketang_courseware import platforms
+
+    return platforms.cache_root() / "leaf-map.json"
 
 
 def _read_cache() -> dict[str, list]:

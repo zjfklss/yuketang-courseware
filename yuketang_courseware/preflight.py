@@ -1,15 +1,16 @@
 """环境自检：`yuketang-courseware --doctor`。
 
-换一台电脑跑不起来，八成是这几件事之一：Python 太旧、缺 Gtk4 / libadwaita、
+换一台电脑跑不起来，八成是这几件事之一：Python 太旧、缺图形界面依赖、
 没装浏览器、目录不可写。这里一条条查清楚并给出人话提示，不用看堆栈。
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from yuketang_courseware import platforms
 
 MIN_PYTHON = (3, 8)
 
@@ -29,6 +30,15 @@ def _python() -> Check:
         need = ".".join(str(part) for part in MIN_PYTHON)
         return Check("Python", False, f"{text} 太旧，需要 {need} 或更新", True)
     return Check("Python", True, text)
+
+
+def _qt() -> list[Check]:
+    try:
+        import PySide6
+        from PySide6 import QtWidgets  # noqa: F401
+    except ImportError:
+        return [Check("PySide6", False, "没装（pip install PySide6-Essentials）")]
+    return [Check("PySide6", True, getattr(PySide6, "__version__", ""))]
 
 
 def _gtk() -> list[Check]:
@@ -68,6 +78,11 @@ def _gtk() -> list[Check]:
     return checks
 
 
+def _gui() -> list[Check]:
+    """Windows 走 Qt，Linux 走 GTK4。"""
+    return _qt() if platforms.IS_WINDOWS else _gtk()
+
+
 def _pillow() -> Check:
     try:
         from PIL import Image  # noqa: F401
@@ -81,9 +96,12 @@ def _browser() -> Check:
 
     found = find_browser()
     if not found:
-        return Check(
-            "浏览器", False, "没找到 Edge / Chrome（装一个才能登录）", True
+        hint = (
+            "没找到 Edge / Chrome（装一个才能登录）"
+            if not platforms.IS_WINDOWS
+            else "没找到 Microsoft Edge / Google Chrome（装一个才能登录）"
         )
+        return Check("浏览器", False, hint, True)
     return Check("浏览器", True, found)
 
 
@@ -101,14 +119,14 @@ def _writable(name: str, path: Path) -> Check:
 def run() -> list[Check]:
     from yuketang_courseware import __version__, settings
 
-    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    platforms.configure_console()
     checks = [_python()]
-    checks.extend(_gtk())
+    checks.extend(_gui())
     checks.append(_pillow())
     checks.append(_browser())
     checks.append(_writable("配置目录", settings.PATH.parent))
-    checks.append(_writable("缓存目录", cache / "yuketang-courseware"))
-    print(f"雨课堂课件 {__version__} 环境自检（{os.uname().sysname}）\n")
+    checks.append(_writable("缓存目录", platforms.cache_root()))
+    print(f"雨课堂课件 {__version__} 环境自检（{platforms.platform_label()}）\n")
     for item in checks:
         mark = "✓" if item.ok else ("×" if item.required else "!")
         level = "" if item.ok else ("（必需）" if item.required else "（可选）")

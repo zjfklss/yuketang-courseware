@@ -1,11 +1,8 @@
-"""把窗口渲染成 PNG，用来核对界面（需要图形界面，不做网络请求）。
-
+﻿"""鎶婄獥鍙ｆ覆鏌撴垚 PNG锛岀敤鏉ユ牳瀵圭晫闈紙闇€瑕佸浘褰㈢晫闈紝涓嶅仛缃戠粶璇锋眰锛夈€?
     python3 tests/screenshot.py --state fresh     --out docs/screenshots/fresh.png
     python3 tests/screenshot.py --state populated --out docs/screenshots/populated.png
 
-`fresh` 是首次启动（网址、保存目录都空着，也不去探测已登录的浏览器）；
-`populated` 用假课程数据填充，看课程行和按钮的样子。
-"""
+`fresh` 鏄娆″惎鍔紙缃戝潃銆佷繚瀛樼洰褰曢兘绌虹潃锛屼篃涓嶅幓鎺㈡祴宸茬櫥褰曠殑娴忚鍣級锛?`populated` 鐢ㄥ亣璇剧▼鏁版嵁濉厖锛岀湅璇剧▼琛屽拰鎸夐挳鐨勬牱瀛愩€?"""
 
 from __future__ import annotations
 
@@ -21,7 +18,7 @@ from gi.repository import Adw, GLib, Graphene, Gsk, Gtk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from yuketang_courseware.app import MainWindow
+from yuketang_courseware.app_gtk import MainWindow
 from yuketang_courseware.catalog import CourseItem, LessonItem
 
 ARGS = argparse.ArgumentParser()
@@ -36,9 +33,9 @@ app = Adw.Application(application_id="local.yuketang.Screenshot")
 
 def fake_courses() -> list[CourseItem]:
     rows = [
-        ("自动控制原理", "示例班级", ["第12讲-第7章（1）", "第11讲-第6章（2）"]),
-        ("计算机网络", "示例班级", ["第9讲 运输层 -UDP&TCP协议"]),
-        ("计算方法", "示例班级", ["第三章 回归分析-2"]),
+        ("鑷姩鎺у埗鍘熺悊", "绀轰緥鐝骇", ["绗?2璁?绗?绔狅紙1锛?, "绗?1璁?绗?绔狅紙2锛?]),
+        ("璁＄畻鏈虹綉缁?, "绀轰緥鐝骇", ["绗?璁?杩愯緭灞?-UDP&TCP鍗忚"]),
+        ("璁＄畻鏂规硶", "绀轰緥鐝骇", ["绗笁绔?鍥炲綊鍒嗘瀽-2"]),
     ]
     courses: list[CourseItem] = []
     for index, (name, klass, titles) in enumerate(rows):
@@ -48,7 +45,7 @@ def fake_courses() -> list[CourseItem]:
             for position, title in enumerate(titles)
         ]
         course.lessons.append(
-            LessonItem(2, "网页预习", "", False, "网页预习，无幻灯片")
+            LessonItem(2, "缃戦〉棰勪範", "", False, "缃戦〉棰勪範锛屾棤骞荤伅鐗?)
         )
         courses.append(course)
     return courses
@@ -58,7 +55,7 @@ def save(win: MainWindow) -> bool:
     child = win.get_child()
     width, height = child.get_width(), child.get_height()
     if width <= 0 or height <= 0:
-        print("窗口还没分配尺寸", file=sys.stderr)
+        print("绐楀彛杩樻病鍒嗛厤灏哄", file=sys.stderr)
         app.quit()
         return False
     paintable = Gtk.WidgetPaintable.new(child)
@@ -72,7 +69,7 @@ def save(win: MainWindow) -> bool:
     out = Path(OPTIONS.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     texture.save_to_png(str(out))
-    print(f"已保存 {out}（{width}x{height}）")
+    print(f"宸蹭繚瀛?{out}锛坽width}x{height}锛?)
     renderer.unrealize()
     app.quit()
     return False

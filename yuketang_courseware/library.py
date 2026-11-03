@@ -49,8 +49,9 @@ class FoundFile:
 
     @property
     def folder(self) -> str:
-        parent = Path(self.relative).parent
-        return "" if str(parent) in ("", ".") else str(parent)
+        # relative 一律是 `/` 分隔（见 scan），这里别再让 Windows 转回 `\\`
+        head, sep, _tail = self.relative.replace("\\", "/").rpartition("/")
+        return head if sep else ""
 
 
 @dataclass
@@ -176,7 +177,9 @@ def scan(
             if stat.st_size < _MIN_FILE_SIZE:
                 continue
             try:
-                relative = str(path.relative_to(root))
+                # 统一用 `/`：界面、整理计划、测试都按同一套写法比对，
+                # Windows 的 `\\` 只留在真正的 Path 上。
+                relative = path.relative_to(root).as_posix()
             except ValueError:
                 relative = name
             found.append(
@@ -230,8 +233,9 @@ def sha256(path: Path) -> str | None:
 
 
 def _records_path() -> Path:
-    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(base) / "yuketang-courseware" / "downloaded.json"
+    from yuketang_courseware import platforms
+
+    return platforms.cache_root() / "downloaded.json"
 
 
 def load_records() -> dict[str, dict]:
@@ -1090,7 +1094,7 @@ def _same_file(left: FoundFile, right) -> bool:
 def _as_found(root: Path, path: Path) -> FoundFile:
     try:
         stat = path.stat()
-        relative = str(path.relative_to(root))
+        relative = path.relative_to(root).as_posix()
     except (OSError, ValueError):
         stat = None
         relative = path.name

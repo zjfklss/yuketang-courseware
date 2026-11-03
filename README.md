@@ -1,9 +1,10 @@
-# 雨课堂课件下载器 · 幻灯片一键导出 PDF（RainClass，Linux deb）
+# 雨课堂课件下载器 · 幻灯片一键导出 PDF（RainClass，Linux / Windows）
 
 > 把**本人已加入**的雨课堂（RainClass）课程幻灯片，按课程 / 讲次批量下载并合成 PDF。
-> GTK4 原生界面，也有命令行；Debian / Ubuntu 双击 `.deb` 即可安装。
+> Linux 是 GTK4 原生界面，Windows 是 Qt 界面，都带命令行；Linux 可双击 `.deb` 安装。
 
 **直接下载安装包**：[Releases 里的 `.deb`](https://github.com/zjfklss/yuketang-courseware/releases/latest) —— 不用自己构建。
+Windows 用 Releases 里的 `yuketang-courseware-windows.zip`，解压后双击 `yuketang-courseware.exe`。
 
 ![python](https://img.shields.io/badge/python-3.8%2B-3776ab?logo=python&logoColor=white)
 ![GTK4](https://img.shields.io/badge/GTK-4.6%2B-4a90d9)
@@ -34,8 +35,8 @@
 | | |
 |---|---|
 | **真 PDF，不是打包截图** | 每页一张原图，直嵌不解码，体积基本等于平台原图之和 |
-| **图形界面** | GTK4 + libadwaita，四步走完：登录 → 选课 → 勾讲次 → 下载 |
-| **也能命令行** | `--all` 整批、`--course` 筛课程、`--term` 筛学期，可写进 cron |
+| **图形界面** | Linux：GTK4 + libadwaita；Windows：PySide6（Qt）。四步走完：登录 → 选课 → 勾讲次 → 下载 |
+| **也能命令行** | `--all` 整批、`--course` 筛课程、`--term` 筛学期，可写进 cron / 计划任务 |
 | **登录隔离** | 独立的浏览器配置目录，不读你日常 Edge / Chrome 的 Cookie，两套互不干扰 |
 | **认已有文件** | 名字（含中文数字、全半角、标点差异）、内容指纹、页数三层比对 |
 | **整理旧文件** | 跟着你已有的目录习惯走，一讲多套都归位，同名不同内容绝不覆盖 |
@@ -66,7 +67,7 @@
 - **平台上只有直链 PDF 的课件**：本工具走的是「幻灯片图片」这条路，这类课件会报「无幻灯片」跳过。这种课直接用浏览器打开那个 PDF 下载就行，本工具帮不上忙。
 - **没加入的课**：只看得到你账号权限内的课程。
 - **想要 pptx**：平台不提供，任何工具都变不出来。
-- **Windows / macOS**：只做了 Linux（deb + GTK4），其他系统没测过。
+- **macOS**：没做，也没测过。
 
 ---
 
@@ -91,9 +92,37 @@ cd yuketang-courseware
 sudo apt install ./dist/yuketang-courseware_*_all.deb
 ```
 
+### 方式三：Windows
+
+去 [Releases](https://github.com/zjfklss/yuketang-courseware/releases/latest) 下载 `yuketang-courseware-windows.zip`，解压到任意目录，双击 `yuketang-courseware.exe`。不需要装 Python。
+
+命令行用同目录的 `yuketang-courseware-cli.exe`：
+
+```powershell
+.\yuketang-courseware-cli.exe --url '<粘贴的网址>' --list
+.\yuketang-courseware-cli.exe --url '<网址>' --all --out "$HOME\Documents\课件"
+```
+
+自己构建（需要 Python 3.9+）：
+
+```powershell
+git clone https://github.com/zjfklss/yuketang-courseware.git
+cd yuketang-courseware
+powershell -ExecutionPolicy Bypass -File packaging\windows\build-windows.ps1
+# 产物：dist\yuketang-courseware\yuketang-courseware.exe
+```
+
+脚本会建 `.venv`、装 `requirements-windows.txt`、跑测试，再用 PyInstaller 打包。
+想要安装包的话，装一个 [Inno Setup](https://jrsoftware.org/isinfo.php)，在仓库根目录执行 `iscc packaging\windows\installer.iss`。
+
+Windows 上的目录约定：设置存在 `%APPDATA%\yuketang-courseware\`，
+缓存（讲次映射、下载指纹）在 `%LOCALAPPDATA%\yuketang-courseware\cache\`，
+登录用的独立浏览器配置在 `%APPDATA%\yuketang-courseware\browser\`，都不碰你日常浏览器。
+
 ### 用
 
-应用菜单里点「雨课堂课件」，或者终端 `yuketang-courseware`。
+Linux 在应用菜单里点「雨课堂课件」，Windows 双击 `yuketang-courseware.exe`，
+或者终端 `yuketang-courseware`。
 
 1. 在自己的浏览器里打开雨课堂，随便点开一门课，把**地址栏整条网址**复制过来，粘进第 1 步，点「登录雨课堂」。
 2. 弹出的浏览器窗口里扫码 / 输账号登录（这个窗口跟你平时的浏览器是两套配置）。登录成功后课程自动出现。
@@ -204,7 +233,7 @@ yuketang-courseware --url '<网址>' --all --no-open --wait 30           # 复�
 
 退出码：`0` 成功，`1` 出错或有失败项，`2` 参数不对。完整手册 `man yuketang-courseware`。
 
-命令行不依赖 GTK，没有桌面也能跑（登录那一步还是要开浏览器窗口）。
+命令行不依赖图形界面库，没有桌面也能跑（登录那一步还是要开浏览器窗口）。
 
 ---
 
@@ -218,16 +247,20 @@ yuketang-courseware --url '<网址>' --all --no-open --wait 30           # 复�
 
 ## 兼容性
 
-| 系统 | Python | GTK / libadwaita | 图形界面 | 命令行 |
+| 系统 | Python | 图形界面依赖 | 图形界面 | 命令行 |
 |---|---|---|---|---|
-| Ubuntu 24.04 | 3.12 | 4.14 / 1.5 | ✓ | ✓ |
-| Ubuntu 22.04 | 3.10 | 4.6 / 1.0 | ✓ | ✓ |
-| Debian 12 | 3.11 | 4.8 / 1.2 | ✓ | ✓ |
+| Windows 10 / 11 | 3.9+（打包版自带 3.12） | PySide6（打包自带） | ✓ | ✓ |
+| Ubuntu 24.04 | 3.12 | GTK 4.14 / libadwaita 1.5 | ✓ | ✓ |
+| Ubuntu 22.04 | 3.10 | GTK 4.6 / libadwaita 1.0 | ✓ | ✓ |
+| Debian 12 | 3.11 | GTK 4.8 / libadwaita 1.2 | ✓ | ✓ |
 | Ubuntu 20.04 / Debian 11 | 3.8 / 3.9 | 只有 GTK3 | ×（系统没有 Gtk4） | ✓ |
 
-高版本 API 全部做了能力检测：`Adw.ToolbarView`（1.4+）、`Adw.Banner`（1.3+）、`Adw.AlertDialog`（1.5+）、`Gtk.FileDialog`（4.10+）缺了就走替代实现，所以 Ubuntu 22.04 上也能开窗口。
+Linux 上高版本 API 全部做了能力检测：`Adw.ToolbarView`（1.4+）、`Adw.Banner`（1.3+）、
+`Adw.AlertDialog`（1.5+）、`Gtk.FileDialog`（4.10+）缺了就走替代实现，所以 Ubuntu 22.04 上也能开窗口。
+Windows 上用的是 Qt Widgets，高 DPI 缩放由 Qt 自己处理，不用额外配置。
 
-需要系统里有 `microsoft-edge` 或 `google-chrome`（登录和取数都靠它）。
+需要系统里有 Edge 或 Chrome（登录和取数都靠它）：Windows 10/11 自带 Edge；
+Linux 上装 `microsoft-edge` 或 `google-chrome` 之一。
 
 ---
 
@@ -240,7 +273,8 @@ yuketang-courseware --url '<网址>' --all --no-open --wait 30           # 复�
 雨课堂只提供分片图片，没有 pptx 可下。输出是图片版 PDF：能搜索吗？不能，文字是图。但画质是原图，打印和看都够用。
 
 **会读到我的日常浏览记录 / Cookie 吗？**
-不会。登录发生在独立配置目录 `~/.local/share/yuketang-courseware/browser`，跟日常浏览器完全隔离，也不解密你的 Cookie 库。
+不会。登录发生在独立配置目录（Linux 是 `~/.local/share/yuketang-courseware/browser`，
+Windows 是 `%APPDATA%\yuketang-courseware\browser`），跟日常浏览器完全隔离，也不解密你的 Cookie 库。
 
 **能下别人没加入的课吗？**
 不能。只列你自己账号能看到的课，接口权限由你的登录态决定。
@@ -248,11 +282,24 @@ yuketang-courseware --url '<网址>' --all --no-open --wait 30           # 复�
 **下到一半断了怎么办？**
 重跑一遍即可。已完成的讲次会被认出来跳过，失败的页只补那一页。某一页反复失败时，结果里会写清缺第几页，其余页正常合成。
 
+**Windows 上点「登录雨课堂」提示「调试端口没有响应」？**
+旧版 Windows 包有个 bug：把系统里所有 Edge 进程都当成自己的登录窗口。现在的版本会自动收掉上次残留的登录窗口再重开；
+如果还不行，用右上角菜单「关闭登录窗口」后重试。某些受限环境（容器、无桌面、安全软件拦住 Chromium 沙箱）可以追加启动参数排查：
+
+```powershell
+$env:YUKETANG_BROWSER_FLAGS = "--no-sandbox"
+.\yuketang-courseware.exe
+```
+
 **图片会不会被压糊？**
 不会。JPEG 原字节直接嵌进 PDF，没有解码再编码的过程，体积和画质都等于平台原图。
 
 **支持 Windows / macOS 吗？**
-目前只做了 Linux（deb 包 + GTK）。代码是 Python，理论上可移植，但没有测试过。
+Windows 支持：Releases 里有打包好的 zip，解压双击就能用，登录、选课、下载、整理都在。
+macOS 没做——没机器测，不想发一个“应该能跑”的包。
+
+**Windows 上要装 Python 吗？**
+用 Releases 里的 zip 不用。自己构建才需要 Python 3.9+，构建脚本会建虚拟环境。
 
 ---
 
@@ -268,7 +315,10 @@ python3 tests/bench_load.py 11 24 100        # 11 门 24 讲，数请求、量�
 
 ```text
 yuketang_courseware/
-  app.py        # libadwaita 窗口
+  app.py        # 图形界面入口：Windows 走 Qt，Linux 走 GTK
+  app_qt.py     # Windows 窗口（PySide6）
+  app_gtk.py    # Linux 窗口（GTK4 + libadwaita）
+  platforms.py  # 配置/缓存目录、浏览器路径、打开文件夹等平台差异
   cli.py        # 命令行
   catalog.py    # 课程 / 课堂活动 / 课件区
   slides.py     # 下载页面、合成 PDF
@@ -277,6 +327,7 @@ yuketang_courseware/
   browser.py    # 独立配置目录的浏览器 + DevTools 取数
   cdp.py        # 极简 WebSocket / DevTools 客户端
   preflight.py  # --doctor 环境自检
+packaging/windows/   # PyInstaller spec、构建脚本、Inno Setup
 ```
 
 ---

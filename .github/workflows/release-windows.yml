@@ -1,0 +1,46 @@
+name: release-windows
+
+# 打 tag（v*）时在最新 Windows 上构建，产出可直接解压运行的压缩包。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: python -m pip install -r requirements-windows.txt
+
+      - name: 跑测试
+        run: python -m unittest discover -s tests -v
+
+      - name: 生成图标
+        run: python packaging/windows/make-ico.py
+
+      - name: PyInstaller 打包
+        run: python -m PyInstaller --noconfirm --clean packaging/windows/yuketang-courseware.spec
+
+      - name: 打包成 zip
+        run: Compress-Archive -Path dist/yuketang-courseware -DestinationPath yuketang-courseware-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yuketang-courseware-windows
+          path: yuketang-courseware-windows.zip
+
+      - name: 上传到 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: yuketang-courseware-windows.zip

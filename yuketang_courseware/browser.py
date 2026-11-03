@@ -12,22 +12,59 @@ import time
 import urllib.request
 from pathlib import Path
 
+from yuketang_courseware import platforms
 from yuketang_courseware.cdp import CdpConnection, CdpError
 from yuketang_courseware.errors import ApiError, BrowserError, BrowserMissing, LoginRequired
 from yuketang_courseware.names import redact
 
-_BROWSERS = (
-    "microsoft-edge",
-    "microsoft-edge-stable",
-    "google-chrome",
-    "google-chrome-stable",
-    "/opt/microsoft/msedge/msedge",
-    "/usr/bin/microsoft-edge",
-    "/opt/google/chrome/google-chrome",
-    "/usr/bin/google-chrome",
-)
+_NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW：起浏览器时别弹一个黑框
 
-_DEFAULT_PROFILE = Path.home() / ".local/share/yuketang-courseware/browser"
+
+def _extra_flags() -> list[str]:
+    """排查用的附加启动参数：YUKETANG_BROWSER_FLAGS="--headless=new --no-sandbox"。
+
+    正常使用不需要；某些受限环境（无桌面、容器、杀软拦截 Chromium 沙箱）里，
+    靠它把浏览器跑起来。只按空格切分，不支持带空格的参数值。
+    """
+    raw = os.environ.get("YUKETANG_BROWSER_FLAGS", "").strip()
+    return raw.split() if raw else []
+
+
+def _browser_candidates() -> list[str]:
+    """可能安装浏览器的地方。Windows 上 Edge 一定在，Chrome 看用户装没装。"""
+    if platforms.IS_WINDOWS:
+        found: list[str] = []
+        for root in (
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("ProgramFiles"),
+            os.environ.get("LOCALAPPDATA"),
+        ):
+            if root:
+                found.append(os.path.join(root, "Microsoft", "Edge", "Application", "msedge.exe"))
+        for root in (
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("LOCALAPPDATA"),
+        ):
+            if root:
+                found.append(os.path.join(root, "Google", "Chrome", "Application", "chrome.exe"))
+        # 有人把浏览器装进 PATH 或者用便携版
+        found.extend(("msedge.exe", "chrome.exe"))
+        return found
+    return [
+        "microsoft-edge",
+        "microsoft-edge-stable",
+        "google-chrome",
+        "google-chrome-stable",
+        "/opt/microsoft/msedge/msedge",
+        "/usr/bin/microsoft-edge",
+        "/opt/google/chrome/google-chrome",
+        "/usr/bin/google-chrome",
+    ]
+
+
+_DEFAULT_PROFILE = platforms.browser_profile()
+
 
 # 排查「怎么这么慢」用：YUKETANG_TIMING=1 起程序，每个请求花多久打到 stderr，
 # 结束时给一份汇总（共几次请求、累计多少毫秒、最慢的是哪个）。
@@ -63,10 +100,12 @@ def timing_summary() -> str:
 
 
 def find_browser() -> str | None:
-    """启动时再找。先 Edge，后 Chrome。"""
-    for candidate in _BROWSERS:
+    """启动时再找。Windows 上 Edge 一定有，Chrome 看装没装。"""
+    for candidate in _browser_candidates():
         if os.path.isabs(candidate):
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            if os.path.isfile(candidate) and (
+                platforms.IS_WINDOWS or os.access(candidate, os.X_OK)
+            ):
                 return candidate
             continue
         found = shutil.which(candidate)
@@ -190,42 +229,64 @@ class CoursewareBrowser:
     def terminate_profile(self) -> None:
         """结束打开了这一配置目录的浏览器及其子进程。不碰其他配置目录。"""
         marker = str(self.data_dir)
-        if not marker or marker in ("/", "/tmp", str(Path.home())):
+        if not marker or marker.rstrip("\\/") in ("", "/tmp", str(Path.home())):
             return
         roots = set(_profile_browser_pids(self.data_dir))
-        pids = roots | _descendants(roots)
-        for pid in pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except OSError:
-                pass
-        time.sleep(0.4)
-        for pid in pids:
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                continue
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except OSError:
-                pass
+        if platforms.IS_WINDOWS:
+            # taskkill /T 会把渲染进程一起收掉，比逐个 kill 稳
+            for pid in roots:
+                _run_hidden(["taskkill", "/PID", str(pid), "/T", "/F"])
+        else:
+            pids = roots | _descendants(roots)
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except OSError:
+                    pass
+            time.sleep(0.4)
+            for pid in pids:
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    continue
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
         if self._conn is not None:
             self._conn.close()
             self._conn = None
+        try:
+            (self.data_dir / "yuketang-port").unlink()
+        except OSError:
+            pass
+        self.port = None
 
     def _ensure_running(self, url: str) -> bool:
         if self._discover_port():
             return False
         if _profile_browser_pids(self.data_dir):
-            raise BrowserError(
-                "本工具的登录浏览器已在运行，但调试端口没有响应。"
-                "请关掉本工具打开的那个窗口后重试。不要关闭平时使用的浏览器。"
-            )
+            # 上一次起的浏览器还占着这个配置目录（窗口关了、后台残留），调试端口没了。
+            # 这是本工具自己的隔离配置，不碰日常浏览器：收掉重开，登录态还在磁盘上。
+            self.terminate_profile()
+            if not _wait_pids_gone(self.data_dir, timeout=3.0):
+                raise BrowserError(
+                    "本工具的登录浏览器还在运行，调试端口没有响应。"
+                    "请用右上角菜单的「关闭登录窗口」再试一次。"
+                )
         exe = find_browser()
         if not exe:
-            raise BrowserMissing("未找到 microsoft-edge 或 google-chrome。请先安装其中之一。")
+            raise BrowserMissing(
+                "未找到 Microsoft Edge 或 Google Chrome。Windows 10/11 自带 Edge，"
+                "如果没有，请装一个再试。"
+                if platforms.IS_WINDOWS
+                else "未找到 microsoft-edge 或 google-chrome。请先安装其中之一。"
+            )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         port = _free_port()
+        extra = _extra_flags()
+        # headless 模式不认 --new-window：带上它浏览器会直接退出（真机踩过）
+        headless = any(flag.startswith("--headless") for flag in extra)
         cmd = [
             exe,
             f"--user-data-dir={self.data_dir}",
@@ -239,17 +300,11 @@ class CoursewareBrowser:
             "--disable-backgrounding-occluded-windows",
             "--disable-renderer-backgrounding",
             "--disable-background-timer-throttling",
-            "--new-window",
+            *extra,
+            *([] if headless else ["--new-window"]),
             url,
         ]
-        self.proc = subprocess.Popen(
-            cmd,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-            cwd="/tmp",
-        )
+        self.proc = subprocess.Popen(cmd, **_spawn_kwargs(self.data_dir))
         self.port = port
         self._wait_until_up()
         return True
@@ -278,14 +333,51 @@ class CoursewareBrowser:
             return False
         if isinstance(info, dict) and info.get("webSocketDebuggerUrl"):
             self.port = port
+            self._remember_port(port)
             return True
         return False
 
+    def _remember_port(self, port: int) -> None:
+        """把调试端口记到配置目录里：Edge 新版本不一定写 DevToolsActivePort，
+        下次启动/另一个进程就靠这个文件接上还开着的登录窗口。"""
+        try:
+            (self.data_dir / "yuketang-port").write_text(str(port), encoding="utf-8")
+        except OSError:
+            pass
+
     def _discover_port(self) -> int | None:
+        if platforms.IS_WINDOWS:
+            known = self._windows_ports()
+            for port in known:
+                if self._version_ok(port):
+                    return port
+            # 端口文件没写（或程序重启过、self.port 丢了）：从浏览器命令行里把端口捞出来
+            for _pid, port in _windows_browser_processes(self.data_dir):
+                if port and port not in known and self._version_ok(port):
+                    return port
+            return None
         for port in _listening_ports(self.data_dir):
             if self._version_ok(port):
                 return port
         return None
+
+    def _windows_ports(self) -> list[int]:
+        """Windows 没有 /proc：先看自己起的端口，再读浏览器/程序留下的端口文件。"""
+        ports: list[int] = []
+        if self.port:
+            ports.append(self.port)
+        for name in ("yuketang-port", "DevToolsActivePort"):
+            try:
+                lines = (self.data_dir / name).read_text(
+                    encoding="utf-8", errors="ignore"
+                ).splitlines()
+            except OSError:
+                continue
+            if lines and lines[0].strip().isdigit():
+                port = int(lines[0].strip())
+                if port not in ports:
+                    ports.append(port)
+        return ports
 
     def _http_json(self, path: str, port: int | None = None):
         use = self.port if port is None else port
@@ -597,7 +689,9 @@ def _free_port() -> int:
 
 
 def _is_browser_exe(exe: str) -> bool:
-    name = Path(exe).name
+    name = Path(exe).name.lower()
+    if name.endswith(".exe"):
+        name = name[:-4]
     return "msedge" in name or name in {
         "chrome",
         "google-chrome",
@@ -607,8 +701,149 @@ def _is_browser_exe(exe: str) -> bool:
     }
 
 
+def _spawn_kwargs(data_dir: Path) -> dict:
+    """起浏览器用的进程参数。
+
+    Windows 上要 CREATE_NO_WINDOW（别弹控制台窗口），也不认 start_new_session；
+    cwd 指到配置目录，别落在程序自己的目录里把文件锁住。
+    """
+    options: dict = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if platforms.IS_WINDOWS:
+        options["creationflags"] = _NO_WINDOW
+        options["cwd"] = str(data_dir)
+    else:
+        options["start_new_session"] = True
+        options["cwd"] = "/tmp"
+    return options
+
+
+def _run_hidden(
+    cmd: list[str], timeout: float = 25, env: dict | None = None
+) -> subprocess.CompletedProcess | None:
+    try:
+        return subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+            check=False,
+            creationflags=_NO_WINDOW if platforms.IS_WINDOWS else 0,
+            env=env,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def _profile_browser_pids(data_dir: Path) -> list[int]:
     """exe 是浏览器，并且打开了这个配置目录里的文件。"""
+    if platforms.IS_WINDOWS:
+        return _windows_profile_browser_pids(data_dir)
+    return _linux_profile_browser_pids(data_dir)
+
+
+def _windows_browser_processes(data_dir: Path) -> list[tuple[int, int | None]]:
+    """Windows 上的「我们自己的浏览器进程」。
+
+    优先用 psutil（纯 Python，打包后也稳）；没有 psutil 时退回 PowerShell/WMI。
+    """
+    try:
+        import psutil  # noqa: F401
+    except ImportError:
+        return _powershell_browser_processes(data_dir)
+    return _psutil_browser_processes(data_dir)
+
+
+def _psutil_browser_processes(data_dir: Path) -> list[tuple[int, int | None]]:
+    import psutil
+
+    marker = os.path.normcase(str(data_dir))
+    if not marker:
+        return []
+    wanted = {"msedge.exe", "chrome.exe"}
+    found: list[tuple[int, int | None]] = []
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            info = proc.info
+            if (info.get("name") or "").lower() not in wanted:
+                continue
+            cmdline = info.get("cmdline") or []
+            if marker not in os.path.normcase(" ".join(cmdline)):
+                continue
+            port = None
+            for part in cmdline:
+                if part.startswith("--remote-debugging-port="):
+                    value = part.split("=", 1)[1].strip()
+                    if value.isdigit():
+                        port = int(value)
+            found.append((int(info["pid"]), port))
+        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError, ValueError):
+            continue
+    return found
+
+
+def _powershell_browser_processes(data_dir: Path) -> list[tuple[int, int | None]]:
+    """PowerShell 后备实现：问 WMI 要命令行里带着我们配置目录的浏览器进程。
+
+    返回 (pid, 命令行里的调试端口或 None)。端口只有主进程有。
+    """
+    marker = str(data_dir)
+    if not marker:
+        return []
+    script = (
+        "$p = $env:YKT_PROFILE; "
+        "if (-not $p) { return }; "
+        "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" "
+        "-ErrorAction SilentlyContinue | "
+        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($p) } | "
+        "ForEach-Object { "
+        "$m = [regex]::Match($_.CommandLine, '--remote-debugging-port=(\\d+)'); "
+        "if ($m.Success) { \"$($_.ProcessId)|$($m.Groups[1].Value)\" } "
+        "else { \"$($_.ProcessId)|\" } "
+        "}"
+    )
+    completed = _run_hidden(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            script,
+        ],
+        env={**os.environ, "YKT_PROFILE": marker},
+    )
+    if completed is None:
+        return []
+    found: list[tuple[int, int | None]] = []
+    for line in completed.stdout.decode("ascii", "ignore").splitlines():
+        pid_text, _, port_text = line.partition("|")
+        pid_text = pid_text.strip()
+        if not pid_text.isdigit():
+            continue
+        port_text = port_text.strip()
+        found.append((int(pid_text), int(port_text) if port_text.isdigit() else None))
+    return found
+
+
+def _windows_profile_browser_pids(data_dir: Path) -> list[int]:
+    return [pid for pid, _port in _windows_browser_processes(data_dir)]
+
+
+def _wait_pids_gone(data_dir: Path, timeout: float) -> bool:
+    deadline = time.time() + max(0.0, timeout)
+    while True:
+        if not _profile_browser_pids(data_dir):
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(0.2)
+
+
+def _linux_profile_browser_pids(data_dir: Path) -> list[int]:
     marker = str(data_dir)
     found = []
     try:
@@ -645,7 +880,9 @@ def _has_fd_in(pid_dir: Path, marker: str) -> bool:
 
 
 def _listening_ports(data_dir: Path) -> list[int]:
-    """本配置目录的浏览器在 127.0.0.1 上监听的端口。"""
+    """本配置目录的浏览器在 127.0.0.1 上监听的端口（Linux 专用）。"""
+    if platforms.IS_WINDOWS:
+        return []
     listeners = _local_listeners()
     ports: list[int] = []
     for pid in _profile_browser_pids(data_dir):
@@ -689,6 +926,8 @@ def _local_listeners() -> dict[str, int]:
 
 
 def _descendants(roots: set[int]) -> set[int]:
+    if platforms.IS_WINDOWS:
+        return set()
     children: dict[int, list[int]] = {}
     try:
         entries = list(Path("/proc").iterdir())

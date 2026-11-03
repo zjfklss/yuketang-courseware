@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--doctor",
         action="store_true",
-        help="检查运行环境（Python 版本、Gtk4 / libadwaita、浏览器、目录权限）后退出",
+        help="检查运行环境（Python 版本、图形界面依赖、浏览器、目录权限）后退出",
     )
     return parser
 
@@ -253,13 +253,19 @@ def _run(args) -> int:
         print("整理计划：" + library.summarize(plan))
         for move in plan.moves[:200]:
             note = f"（{move.reason}）" if move.reason else ""
-            print(f"  {move.source.relative}  ->  {move.target.relative_to(save_root)}{note}")
+            print(
+                f"  {move.source.relative}  ->  "
+                f"{move.target.relative_to(save_root).as_posix()}{note}"
+            )
         if len(plan.moves) > 200:
             print(f"  ……还有 {len(plan.moves) - 200} 个")
         for clash in plan.conflicts[:20]:
             note = clash.note()
             extra = f"（{note}）" if note else ""
-            print(f"  未动，内容冲突：{clash.source.relative}{extra}  vs  {clash.target.relative_to(save_root)}")
+            print(
+                f"  未动，内容冲突：{clash.source.relative}{extra}  vs  "
+                f"{clash.target.relative_to(save_root).as_posix()}"
+            )
         for first, second in plan.duplicates[:20]:
             print(f"  内容重复（未动，可自行删除）：{first.relative}  与  {second.relative}")
         for item in plan.unmatched[:10]:

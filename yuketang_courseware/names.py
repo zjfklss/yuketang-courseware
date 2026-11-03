@@ -6,7 +6,17 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from yuketang_courseware import platforms
+
 _ILLEGAL = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
+# Windows 保留设备名，叫 CON.pdf 会在资源管理器里打不开。
+_RESERVED = frozenset(
+    ["CON", "PRN", "AUX", "NUL"]
+    + [f"COM{digit}" for digit in range(1, 10)]
+    + [f"LPT{digit}" for digit in range(1, 10)]
+)
+# Windows 的完整路径一般上限 260 个字符，单个名字留窄一点，给目录留余量。
+_MAX_BYTES = 120 if platforms.IS_WINDOWS else 150
 _SECRET = re.compile(
     r"https?://\S+"
     r"|token=[^\s&\"']+"
@@ -30,14 +40,21 @@ def safe_component(name: str, fallback: str) -> str:
     if not text:
         text = "未命名"
     raw = text.encode("utf-8")
-    if len(raw) > 150:
-        text = raw[:150].decode("utf-8", errors="ignore").rstrip().strip(".") or "未命名"
+    if len(raw) > _MAX_BYTES:
+        text = (
+            raw[:_MAX_BYTES].decode("utf-8", errors="ignore").rstrip().strip(" .")
+            or "未命名"
+        )
     return text
 
 
 def _clean(name: str) -> str:
     text = _ILLEGAL.sub("", str(name or ""))
-    text = re.sub(r"\s+", " ", text).strip().strip(".")
+    text = re.sub(r"\s+", " ", text).strip()
+    # Windows 不允许名字以点或空格结尾（"." 和 ".." 也是目录别名）。
+    text = text.strip(" .")
+    if platforms.IS_WINDOWS and text.split(".")[0].strip().upper() in _RESERVED:
+        text = "_" + text
     if text in ("", ".", ".."):
         return ""
     return text

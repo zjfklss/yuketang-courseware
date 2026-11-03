@@ -39,6 +39,8 @@ class FetchOverheadTest(unittest.TestCase):
         browser_mod._profile_browser_pids = counting
         self.addCleanup(setattr, browser_mod, "_profile_browser_pids", real)
         self.api = browser_mod.CoursewareBrowser(data_dir=Path("/tmp/fake-profile"))
+        # Windows 上没有 /proc 可扫：直接把假服务端的端口告诉它，效果一样
+        self.api.port = self.fake.port
         # 预热：第一次必须做完整发现
         self.api.fetch_json(self.fake.origin, self.fake.host, COURSE_PATH, None, None)
 

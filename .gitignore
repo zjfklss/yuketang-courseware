@@ -2,6 +2,10 @@
 dist/
 build/
 *.deb
+.venv/
+
+# Windows 构建时从 docs/icon-128.png 生成
+packaging/windows/app.ico
 
 # Python
 __pycache__/

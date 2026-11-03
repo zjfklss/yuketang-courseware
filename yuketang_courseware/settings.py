@@ -1,6 +1,7 @@
 """记住上次填的网址和保存目录。
 
-只写在本机：`~/.local/share/yuketang-courseware/settings.json`。程序里不写死学校 id，
+只写在本机：Linux 是 `~/.local/share/yuketang-courseware/settings.json`，
+Windows 是 `%APPDATA%\\yuketang-courseware\\settings.json`。程序里不写死学校 id，
 网址是用户自己填的。
 """
 
@@ -8,9 +9,10 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 
-PATH = Path.home() / ".local/share/yuketang-courseware/settings.json"
+from yuketang_courseware import platforms
+
+PATH = platforms.data_root() / "settings.json"
 
 
 def load() -> dict:
@@ -30,4 +32,3 @@ def save(url: str, directory: str) -> None:
         os.replace(part, PATH)
     except OSError:
         pass
-

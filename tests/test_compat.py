@@ -90,19 +90,19 @@ class AdwFallbackTest(unittest.TestCase):
     """旧版 libadwaita 没有 ToolbarView / Banner，兜底类必须提供同样的方法。"""
 
     def test_toolbar_fallback_api(self):
-        from yuketang_courseware import app
+        from yuketang_courseware import app_gtk as app
 
         for name in ("add_top_bar", "set_content"):
             self.assertTrue(callable(getattr(app._ToolbarFallback, name, None)), name)
 
     def test_banner_shim_api(self):
-        from yuketang_courseware import app
+        from yuketang_courseware import app_gtk as app
 
         for name in ("set_title", "set_revealed"):
             self.assertTrue(callable(getattr(app._BannerShim, name, None)), name)
 
     def test_helpers_pick_new_api_when_available(self):
-        from yuketang_courseware import app
+        from yuketang_courseware import app_gtk as app
 
         # 本机 libadwaita 够新时，走的是官方控件
         if hasattr(app.Adw, "ToolbarView"):
@@ -127,8 +127,13 @@ class PreflightTest(unittest.TestCase):
     def test_run_reports_every_component(self):
         checks = preflight.run()
         names = " ".join(item.name for item in checks)
-        for expected in ("Python", "Gtk 4", "libadwaita", "浏览器"):
-            self.assertIn(expected, names)
+        expected = ("Python", "浏览器")
+        if sys.platform == "win32":
+            expected += ("PySide6",)
+        else:
+            expected += ("Gtk 4", "libadwaita")
+        for item in expected:
+            self.assertIn(item, names)
 
 
 if __name__ == "__main__":
