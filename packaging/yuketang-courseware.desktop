@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=雨课堂课件
+GenericName=课件下载
+Comment=下载本人雨课堂课程幻灯片并合成 PDF。仅供本人学习，不要再传播。
+Exec=yuketang-courseware
+Icon=yuketang-courseware
+Terminal=false
+Categories=Education;
+StartupNotify=true
+StartupWMClass=local.yuketang.Courseware
+Keywords=yuketang;courseware;课件;雨课堂;

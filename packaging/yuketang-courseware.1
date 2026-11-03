@@ -1,0 +1,100 @@
+.TH YUKETANG-COURSEWARE 1 "2026-11-02" "yuketang-courseware 0.5.2" "用户命令"
+.SH 名称
+yuketang-courseware \- 下载本人雨课堂课堂幻灯片并合成 PDF
+.SH 概要
+.B yuketang-courseware
+.RI [ 选项 ]
+.SH 描述
+不带参数时打开图形窗口：先粘贴雨课堂网址（在自己的浏览器里随便点开一门课，从
+地址栏整条复制），再在程序打开的窗口里登录，勾选讲次，选好保存目录，把幻灯片
+合成 PDF。带参数时走命令行，可以列清单、按课程和学期筛、整批下载。
+.PP
+网址和保存目录都不预设：不同学校、不同人的入口和习惯都不一样，程序不替使用者
+猜路径。
+.PP
+登录只发生在独立的浏览器配置目录里
+.RB（ \fI~/.local/share/yuketang-courseware/browser\fP ），
+不读取日常 Edge / Chrome 的 Cookie 库。程序里不写死学校 id、学号、姓名；
+学校 id 与课堂 id 只从网址的查询参数里读。
+.PP
+课件来自两类来源：课堂活动（type 14 / 3）和课件区（线上学习 leaf）。平台只提供
+分片图片，不提供 pptx，所以输出是 PDF（每页一张原图，JPEG 直接嵌入，不重编码）。
+.PP
+课件仅供本人学习，不要再传播。
+.SH 选项
+.TP
+.B \-\-url \fI网址\fR
+必填。在浏览器里打开雨课堂，随便点开一门课，把地址栏整条网址复制过来。
+学校 id、课堂 id 只从这个网址的查询参数里读，程序不写死学校入口。
+.TP
+.B \-\-out \fI目录\fR
+保存目录，默认当前目录。每门课一个子目录，目录名是课程名；同一学期课程名重复时
+加上班级名。
+.TP
+.B \-\-course \fI关键词\fR
+只处理课程名或班级名含这个词的课。可重复。
+.TP
+.B \-\-term \fI学期\fR
+只处理这个学期号。
+.TP
+.B \-\-all\-terms
+处理全部学期，默认只处理最新学期。
+.TP
+.B \-\-all
+真正开始下载；不加时只列清单。
+.TP
+.B \-\-list
+只列清单，不下载（不加 \fB\-\-all\fR 时本来就是默认行为）。
+.TP
+.B \-\-tidy
+把目录里已有的 PDF 归到「课程名/课件/讲次.pdf」。只搬不删、绝不覆盖：
+目标位置已有同名文件而内容不同时，来的那份另存为
+「标题（另一版本 日期）.pdf」，同一个目标最多留 10 份；内容相同的只报重复。
+目录结构跟着用户已有的目录走，不另起同义目录；一讲多套幻灯片全部归位。
+.TP
+.B \-\-on\-conflict {keep\-both,skip}
+整理时遇到同名但内容不同的文件：\fBkeep\-both\fR（默认）另存一份、两份都留；
+\fBskip\fR 只报告不动。
+.TP
+.B \-\-dry\-run
+只打印整理计划，不动文件、不下载。
+.TP
+.B \-\-source {both,activity,leaf}
+只取课堂活动、只取课件区，或两者都要（默认）。
+.TP
+.B \-\-jobs \fI数量\fR
+同时下载几讲，默认 1。不要调太大。
+.TP
+.B \-\-delay \fI秒\fR
+相邻两门课之间停几秒，默认 0.5。
+.TP
+.B \-\-no\-open
+不再打开浏览器，直接用已经在跑的本工具登录窗口。
+.TP
+.B \-\-wait \fI秒\fR
+最多等登录多少秒，默认 300。
+.TP
+.B \-\-doctor
+检查运行环境后退出：Python 版本、PyGObject、Gtk 4、libadwaita、Pillow、
+Edge/Chrome、配置目录与缓存目录是否可写。缺什么会给出对应的 apt 命令。
+有必需项不通过时退出码为 1，可以直接用来判断「这台机器能不能跑」。
+.TP
+.B \-\-version
+显示版本号。
+.SH 文件
+.TP
+.I ~/.local/share/yuketang-courseware/browser
+本工具专用的浏览器配置目录，登录态只存在这里。
+.TP
+.I ~/.local/share/yuketang-courseware/settings.json
+上次粘贴的网址和上次选的保存目录（不预置任何默认值）。
+.SH 退出状态
+0 成功；1 出错、登录超时或下载有失败项；2 参数不对。
+.SH 示例
+.nf
+yuketang-courseware \-\-url https://changjiang.yuketang.cn/v2/web/index \-\-list
+yuketang-courseware \-\-url ... \-\-all \-\-out ~/课件
+yuketang-courseware \-\-url ... \-\-course 自动控制 \-\-all
+.fi
+.SH 参见
+雨课堂 \fIhttps://changjiang.yuketang.cn\fR

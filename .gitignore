@@ -1,0 +1,22 @@
+# 构建产物
+dist/
+build/
+*.deb
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 本地笔记与工作记录（含个人路径）
+.workbuddy/
+Trash-0/
+.Trash-0/
+
+# 界面截图（含真实课程名、班级名，不进仓库）
+docs/screenshots/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp

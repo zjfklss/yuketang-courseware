@@ -1,0 +1,10 @@
+#!/bin/sh
+# 优先跑安装目录里的包：python3 -m 会把「当前目录」排到搜索路径最前面，
+# 在含同名源码的目录里启动时会静默顶掉已安装的版本。
+PKG=/usr/share/yuketang-courseware/yuketang_courseware
+if [ -f "$PKG/__main__.py" ]; then
+  export PYTHONPATH="/usr/share/yuketang-courseware${PYTHONPATH:+:$PYTHONPATH}"
+  exec python3 "$PKG/__main__.py" "$@"
+fi
+export PYTHONPATH="/usr/share/yuketang-courseware${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m yuketang_courseware "$@"
