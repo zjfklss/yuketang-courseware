@@ -12,7 +12,7 @@ Windows 直接下 Releases 里的 `yuketang-courseware.exe` 双击即可（也�
 ![platform](https://img.shields.io/badge/Debian%20%2F%20Ubuntu-deb-a80030)
 ![tests](https://github.com/zjfklss/yuketang-courseware/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/version-0.5.7-success)
+![status](https://img.shields.io/badge/version-0.5.8-success)
 
 ---
 
@@ -135,7 +135,7 @@ yuketang-courseware --doctor
 ```
 
 ```text
-雨课堂课件 0.5.7 环境自检（Linux）
+雨课堂课件 0.5.8 环境自检（Linux）
 
   ✓ Python       3.10.12（/usr/bin/python3）
   ✓ PyGObject    3.42.2
