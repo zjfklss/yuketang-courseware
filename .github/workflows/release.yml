@@ -27,7 +27,9 @@ jobs:
           files: dist/*.deb
           name: ${{ github.ref_name }}
           body: |
+            雨课堂（RainClassRoom）课件下载器：把已加入课程的幻灯片收成按讲分好的 PDF。
+
             **Ubuntu / Debian**：下载 `.deb` 后执行 `sudo apt install ./yuketang-courseware_*.deb`（依赖由 apt 一并装好）。
-            **Windows**：同 Release 里的 `yuketang-courseware.exe`，双击即可；也有 cli 与 zip。
+            **Windows**：下载 `yuketang-courseware.exe` 双击即可；命令行用 `yuketang-courseware-cli.exe`（也有 zip）。
             详见 [README](../blob/main/README.md)。
           fail_on_unmatched_files: true
