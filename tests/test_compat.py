@@ -20,6 +20,22 @@ from yuketang_courseware import preflight  # noqa: E402
 PACKAGE = ROOT / "yuketang_courseware"
 
 
+def _gtk_available() -> bool:
+    """CI 上没有 Gtk4 的 typelib，界面相关的检查要能跳过而不是报错。"""
+    try:
+        import gi
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
+        from gi.repository import Adw, Gtk  # noqa: F401
+    except (ImportError, ValueError):
+        return False
+    return True
+
+
+HAS_GTK = _gtk_available()
+
+
 def _has_bitor_annotation(node: ast.AST) -> bool:
     for child in ast.walk(node):
         if isinstance(child, ast.BinOp) and isinstance(child.op, ast.BitOr):
@@ -69,6 +85,7 @@ class AnnotationCompatTest(unittest.TestCase):
                     self.assertNotIn(token, source)
 
 
+@unittest.skipUnless(HAS_GTK, "没装 Gtk4 / libadwaita，跳过界面兜底检查")
 class AdwFallbackTest(unittest.TestCase):
     """旧版 libadwaita 没有 ToolbarView / Banner，兜底类必须提供同样的方法。"""
 
