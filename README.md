@@ -1,7 +1,9 @@
-# 雨课堂课件 → PDF
+# 雨课堂课件下载器 · 幻灯片一键导出 PDF（RainClass，Linux deb）
 
-> 把**本人已加入**的雨课堂（RainClass / 雨课堂网页版）课程幻灯片收成按讲分好的 PDF。
-> 图形界面点着用，也能命令行整批跑。
+> 把**本人已加入**的雨课堂（RainClass）课程幻灯片，按课程 / 讲次批量下载并合成 PDF。
+> GTK4 原生界面，也有命令行；Debian / Ubuntu 双击 `.deb` 即可安装。
+
+**直接下载安装包**：[Releases 里的 `.deb`](https://github.com/zjfklss/yuketang-courseware/releases/latest) —— 不用自己构建。
 
 ![python](https://img.shields.io/badge/python-3.8%2B-3776ab?logo=python&logoColor=white)
 ![GTK4](https://img.shields.io/badge/GTK-4.6%2B-4a90d9)
@@ -69,16 +71,28 @@
 
 ## 快速开始
 
-**装**（Debian / Ubuntu，依赖由 apt 一起装好）：
+### 方式一：直接装 `.deb`（推荐）
+
+到 [Releases](https://github.com/zjfklss/yuketang-courseware/releases/latest) 下载 `yuketang-courseware_*_all.deb`，然后：
+
+```bash
+sudo apt install ./yuketang-courseware_*_all.deb
+```
+
+依赖（Gtk4、libadwaita、PyGObject、Edge/Chrome）会由 apt 一起装上。`Architecture: all`，amd64 / arm64 通用。
+
+### 方式二：从源码构建
 
 ```bash
 git clone https://github.com/zjfklss/yuketang-courseware.git
 cd yuketang-courseware
-./build-deb.sh
+./build-deb.sh                                  # 只用 dpkg-deb，不需要 debhelper
 sudo apt install ./dist/yuketang-courseware_*_all.deb
 ```
 
-**用**：应用菜单里点「雨课堂课件」，或者终端 `yuketang-courseware`。
+### 用
+
+应用菜单里点「雨课堂课件」，或者终端 `yuketang-courseware`。
 
 1. 在自己的浏览器里打开雨课堂，随便点开一门课，把**地址栏整条网址**复制过来，粘进第 1 步，点「登录雨课堂」。
 2. 弹出的浏览器窗口里扫码 / 输账号登录（这个窗口跟你平时的浏览器是两套配置）。登录成功后课程自动出现。
